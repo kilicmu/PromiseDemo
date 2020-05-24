@@ -3,6 +3,11 @@ const STATE = {
   FULFILLED: 'FULFILLED',
   REJECTED: 'REJECTED',
 }
+
+const _resolve = (_promise, x, resolve, reject) => {
+  //TODO 处理then的回调返回值
+}
+
 class Promise {
   constructor(execute) {
     this.status = STATE.PENDING
@@ -19,9 +24,9 @@ class Promise {
       }
     }
 
-    let reject = (err) => {
+    let reject = (e) => {
       if (this.status === STATE.PENDING) {
-        this.reason = err
+        this.reason = e
         this.status = STATE.REJECTED
         this.rejectedCbs.forEach((_i) => _i())
       }
@@ -44,27 +49,53 @@ class Promise {
         throw this.reason
       }
     }
-    // const _promise = new Promise((resolve, reject) => {
-    if (this.status === STATE.FULFILLED) {
-      onFulfilled(this.value)
-    } else if (this.status === STATE.REJECTED) {
-      onRejected(this.reason)
-    } else {
-      // 处理异步resolve
-      this.fulfilledCbs.push(() => onFulfilled(this.value))
-      this.rejectedCbs.push(() => onRejected(this.reason))
-    }
-    // })
 
-    // return _promise
+    const _promise = new Promise((resolve, reject) => {
+      if (this.status === STATE.FULFILLED) {
+        // 为了获取_promise
+        setImmediate(() => {
+          try {
+            const x = onFulfilled(this.value)
+            _resolve(_promise, x, resolve, reject)
+          } catch (e) {
+            reject(e)
+          }
+        })
+      } else if (this.status === STATE.REJECTED) {
+        setImmediate(() => {
+          try {
+            const x = onRejected(this.reason)
+            _resolve(_promise, x, resolve, reject)
+          } catch (e) {
+            reject(e)
+          }
+        })
+      } else {
+        // 处理异步resolve/reject
+        this.fulfilledCbs.push(() => {
+          setImmediate(() => {
+            try {
+              const x = onFulfilled(this.value)
+              _resolve(_promise, x, resolve, reject)
+            } catch (e) {
+              reject(e)
+            }
+          })
+        })
+        this.rejectedCbs.push(() => {
+          setImmediate(() => {
+            try {
+              const x = onRejected(this.reason)
+              _resolve(_promise, x, resolve, reject)
+            } catch (e) {
+              reject(e)
+            }
+          })
+        })
+      }
+    })
+    return _promise
   }
 }
 
-let p1 = new Promise((resolve, reject) => {
-  setTimeout(() => {
-    resolve(1)
-  }, 1000)
-})
-p1.then((d) => {
-  console.log(d)
-})
+module.exports = Promise
