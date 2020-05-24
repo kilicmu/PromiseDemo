@@ -5,7 +5,39 @@ const STATE = {
 }
 
 const _resolve = (_promise, x, resolve, reject) => {
-  //TODO 处理then的回调返回值
+  let called = false
+  if (_promise === x) {
+    return reject(new TypeError('Chaining cycle detected for promise'))
+  }
+
+  if ((typeof x === 'object' && x != null) || typeof x === 'function') {
+    try {
+      let then = x.then
+      if (typeof then === 'function') {
+        then.call(
+          x,
+          (y) => {
+            if (called) return
+            called = true
+            _resolve(_promise, y, resolve, reject)
+          },
+          (e) => {
+            if (called) return
+            called = true
+            reject(e)
+          }
+        )
+      } else {
+        resolve(x)
+      }
+    } catch (e) {
+      if (called) return
+      called = true
+      reject(e)
+    }
+  } else {
+    resolve(x)
+  }
 }
 
 class Promise {
